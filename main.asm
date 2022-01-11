@@ -1,0 +1,5 @@
+PSH 5
+PSH 10
+ADD
+POP
+HLT
