@@ -1,6 +1,6 @@
 #include <stdbool.h>
 #include <stdio.h>
-#include<stdlib.h>
+#include <stdlib.h>
 
 typedef enum {
   PSH, // Push a value
@@ -24,21 +24,22 @@ bool running = true;
 
 int fetch() { return program[ip]; }
 
-void readFromFile(){
-	char ch, file_name[256];
+void readFromFile() {
+  char ch;
 
-	FILE *f;
-	f = fopen("./main.asm","r");
-	if(f==NULL){
-		puts("[-]Error Opening File");
-		exit(-1);
-	}
+  char file[1024];
 
-	while((ch  = fgetc(f)) != EOF){
-		printf("%c",ch);
-	}
-	
+  FILE *f;
+  f = fopen("./main.asm", "r");
+  if (f == NULL) {
+    puts("[-]Error Opening File");
+    exit(-1);
+  }
+  
+  while(fgets(file,1024,f) != NULL)
+	  printf("%s",file);
 }
+
 
 void eval(int instr) {
   switch (instr) {
@@ -74,6 +75,9 @@ void eval(int instr) {
 }
 
 int main() {
+  puts("ok");
+  readFromFile();
+  printf("tf\n");
   while (running) {
     eval(fetch());
     ip++;
