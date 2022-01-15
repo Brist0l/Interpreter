@@ -47,7 +47,7 @@ int readfile(char *filename, char *readarray) {
   }
 
   /* Read file into array */
-  fread(readarray,1024, 1, fp);
+  fread(readarray, 1024, 1, fp);
 
   fclose(fp);
 
@@ -66,7 +66,7 @@ void eval(int instr) {
   }
   case PSH: {
     sp++;
- //   stack[sp] = program[++ip];
+    //   stack[sp] = program[++ip];
     break;
   }
 
@@ -91,10 +91,13 @@ void eval(int instr) {
   }
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+  if (argc > 2 || argc == 1) {
+    fprintf(stderr, "[-] Too Less Or Too Many Args!");
+    exit(-1);
+  }
   char ok[1024];
-  readfile("./main.asm", ok);
-  
+  readfile(argv[1], ok);
   while (running) {
     eval(fetch(ok));
     ip++;
