@@ -13,8 +13,6 @@ typedef enum {
   HLT  // Terminate the Program
 } InstructionSet;
 
-const int program[] = {PSH, 5, PSH, 6, ADD, POP, HLT};
-
 int ip = 0;  // Instruction Pointer
 int sp = -1; // Stack Pointer
 
@@ -22,34 +20,53 @@ int stack[256];
 
 bool running = true;
 
-int fetch() { return program[ip]; }
+int fetch(char program[]) { return program[ip]; }
 
-void readFromFile() {
-  char ch;
+int readfile(char *filename, char *readarray) {
+  FILE *fp;
+  fp = fopen(filename, "r");
 
-  char file[1024];
-
-  FILE *f;
-  f = fopen("./main.asm", "r");
-  if (f == NULL) {
-    puts("[-]Error Opening File");
-    exit(-1);
+  if (fp == NULL) {
+    return -1;
   }
-  
-  while(fgets(file,1024,f) != NULL)
-	  printf("%s",file);
-}
 
+  /* fseek goes(seeks) to end of fie and check for error in the if conditional
+   */
+  if (fseek(fp, 0L, SEEK_END) < 0) {
+    fclose(fp);
+    return -1;
+  }
+
+  int file_size = ftell(fp) + 1;
+
+  /* go back to where we were and continue */
+  if (fseek(fp, 0L, SEEK_SET) < 0) {
+    printf("Error: Possibly corrupt rom\n");
+
+    return -1;
+  }
+
+  /* Read file into array */
+  fread(readarray,1024, 1, fp);
+
+  fclose(fp);
+
+  /* return file size so that you know how big is array and prevent bugs in your
+   * code */
+  readarray[file_size - 1] = '\0';
+  return file_size;
+}
 
 void eval(int instr) {
   switch (instr) {
   case HLT: {
     running = false;
+    puts("Stopped!");
     break;
   }
   case PSH: {
     sp++;
-    stack[sp] = program[++ip];
+ //   stack[sp] = program[++ip];
     break;
   }
 
@@ -75,11 +92,11 @@ void eval(int instr) {
 }
 
 int main() {
-  puts("ok");
-  readFromFile();
-  printf("tf\n");
+  char ok[1024];
+  readfile("./main.asm", ok);
+  
   while (running) {
-    eval(fetch());
+    eval(fetch(ok));
     ip++;
   }
   return 0;
