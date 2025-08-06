@@ -23,7 +23,13 @@ const char* opcodes_str[] = {
 	"JMP", //Jump to a specific label
 	"JNZ", //Jump to a specific label if zero flag is off 
 	"JZ", //Jump to a specific label if zero flag is on
-	"INP" //Take input into a variable from the user
+	"JG", //Jump to a specific label if var1 > var2
+	"JL", //Jump to a specific label if var1 < var2
+	"JE", //Jump to a specific label if var1 = var2
+	"INP", //Take input into a variable from the user
+	"OUT", //Print out the value of the variable
+	"CALL",//Call a label
+	"RET" // Return
 };
 
 typedef enum {
@@ -45,7 +51,13 @@ typedef enum {
 	JMP,//Jump to a specific label
 	JNZ,//Jump to a specific label if zero flag is off 
 	JZ ,//Jump to a specific label if zero flag is on
-	INP //Take input into a variable from the user
+	JG, //Jump to a specific label if var1 > var2
+	JL, //Jump to a specific label if var1 < var2
+	JE, //Jump to a specific label if var1 = var2
+	INP, //Take input into a variable from the user
+	OUT, //Print out the value of the variable
+	CALL, //Call a label
+	RET // Return
 } opcodes;
 
 int ip = 0;  // instruction Pointer
@@ -53,18 +65,20 @@ int sp = 0; // stack Pointer
 int zf = 0; // zero flag
 int cf = 0; // carry flag
 int vr = 0; // var counter
-int lr = 0; // lable counter
+int lr = 0; // label counter
+int fc = 0; // function counter
 struct var_hashmap{
 	char vars[10];
 	int val;
 };
 struct var_hashmap var[10 * sizeof(struct var_hashmap)]; 
-struct lable_hashmap{
-	char lables[10];
+struct label_hashmap{
+	char labels[10];
 	int inst_index;
 };
-struct lable_hashmap lable[10 * sizeof(struct lable_hashmap)]; 
+struct label_hashmap label[10 * sizeof(struct label_hashmap)]; 
 int stack[1024];
+int call_stack[10];
 bool running = true;
 char** program;
 
@@ -74,12 +88,21 @@ int readfile(char *filename, char **readarray,int readarray_size);
 int getopcode(char* opcode);
 bool checkstacklen(int des_len);
 int findvar();
-void gotolable();
+void gotolabel();
+void parselabels(int size);
 
-void gotolable(){
+void parselabels(int size){
+	for(int i = 0;i < size;i++)
+		if(strcmp(program[i],"LBL") == 0){
+			strcpy(label[lr].labels,program[++i]); // save the label name in the ram
+			label[lr++].inst_index = i;
+		}
+}
+
+void gotolabel(){
 	for(int i = 0; i < lr; i++)
-		if(strcmp(lable[i].lables,program[ip +1]) == 0){
-			ip = lable[i].inst_index;
+		if(strcmp(label[i].labels,program[ip +1]) == 0){
+			ip = label[i].inst_index;
 			break;
 		}
 }
@@ -142,7 +165,6 @@ int readfile(char *filename, char **readarray,int readarray_size) {
 	return j;
 }
 
-
 void eval(int instr) {
 	int a,b,var_cnt,var_cnt_alt;
 
@@ -178,8 +200,19 @@ void eval(int instr) {
 			break;
 
 		case MUL:
+			var_cnt = findvar();
+			if(var_cnt >= 0){
+				var_cnt_alt = findvar();
+				if(var_cnt_alt >= 0){
+					var[var_cnt].val *= var[var_cnt_alt].val;
+					break;
+				}
+			}
+
+
 			if(!checkstacklen(2))
 				break;
+				
 			a = stack[--sp];
 			b = stack[--sp];
 			stack[sp++] = b * a;
@@ -298,22 +331,32 @@ void eval(int instr) {
 			break;
 
 		case LBL:
-			strcpy(lable[lr].lables,program[++ip]); // save the label name in the ram
-			lable[lr++].inst_index = ip;
 			break;
 
 		case JMP:
-			gotolable();
+			gotolabel();
 			break;	
 		case JNZ:
 			if(zf == 0)
-				gotolable();
+				gotolabel();
 			break;	
 		case JZ:
 			// if zf is turned on 
 			if(zf == 1)
-				gotolable();
+				gotolabel();
 			break;	
+		case JG:
+			if(zf == 0 && cf == 0)
+				gotolabel();
+			break;
+		case JL:
+			if(zf == 0 && cf == 1)
+				gotolabel();
+			break;
+		case JE:
+			if(zf == 1 && cf == 0)
+				gotolabel();
+			break;
 		case INP:
 			scanf("%d",&a);
 			var_cnt = findvar();
@@ -324,6 +367,23 @@ void eval(int instr) {
 				var[vr++].val = a;
 			}
 
+			break;
+		case OUT:
+			var_cnt = findvar();
+			if(var_cnt >= 0)
+				printf("%d\n",var[var_cnt].val);
+
+			break;
+
+		case CALL:
+			call_stack[fc++] = ip; // instruction to which it needs to come back to
+			gotolabel();
+			break;
+
+		case RET:
+			ip = call_stack[--fc];
+			break;
+			
 	}
 }
 
@@ -338,11 +398,13 @@ int main(int argc, char *argv[]) {
 	for (int i = 0; i < 100; i++)
 		prog[i] = malloc(10 * sizeof(char));     
 
-	readfile(argv[1],prog,size);
+	size = readfile(argv[1],prog,size);
 
 	program = prog;	
 
 	//printf("instrcution: %s and it's opcode = %d\n",progvar[ip],getopcode(program[ip]));
+	
+	parselabels(size);
 
 	while(running){
 		eval(getopcode(program[ip]));

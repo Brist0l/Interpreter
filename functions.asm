@@ -1,0 +1,10 @@
+PSH 10
+CALL func
+PSH 99
+PRT
+HLT
+
+LBL func
+PSH 20
+ADD
+RET
