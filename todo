@@ -1,4 +1,5 @@
-Make a parser that would get all the label with their ip
-reduce the repetitive codes in the ALU
-device a method to differentiate vars with consts
+1) Make a parser that would get all the label with their ip(done)
+2) reduce the repetitive codes in the ALU (done) 
+3) device a method to differentiate vars with consts 
+4) Add an instruction `INP` which takes input from user and stores in a variable (done)
 
