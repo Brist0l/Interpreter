@@ -1,9 +1,8 @@
 SET A 10
+PSH 20
+PRT
+POP A
+PRT
 PSH A
-LBL loop
-DEC A
-PSH A
-CMP A 0
-JNZ loop
 PRT
 HLT

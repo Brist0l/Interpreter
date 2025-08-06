@@ -46,12 +46,10 @@ typedef enum {
 	JZ //Jump to a specific label if zero flag is on
 } opcodes;
 
-
 int ip = 0;  // instruction Pointer
 int sp = 0; // stack Pointer
 int zf = 0; // zero flag
-int cf = 0; // zero flag
-int mem = 0; // mem addr
+int cf = 0; // carry flag
 int vr = 0; // var counter
 struct ram_hashmap{
 	char vars[10];
@@ -62,27 +60,38 @@ int stack[1024];
 bool running = true;
 char** program;
 
+
 void eval(int instr);
 int readfile(char *filename, char **readarray,int readarray_size);
 int getopcode(char* opcode);
 bool checkstacklen(int des_len);
+int findvar();
+
+int findvar(){
+	for(int i = 0; i < vr; i++)
+		if(strcmp(ram[i].vars,program[ip +1]) == 0){
+			ip++;
+			return i;
+		}
+	return -1;
+}
 
 bool checkstacklen(int des_len){
-			if(sp < des_len){
-				running = false;
-				printf("Stack doesn't have even %d elements\n",des_len);
-				return false;
-			}
-			else
-				return true;
+	if(sp < des_len){
+		running = false;
+		printf("Stack doesn't have even %d elements\n",des_len);
+		return false;
+	}
+	else
+		return true;
 
 }
 
 int getopcode(char* opcode){
 	for(int i = 0; i < sizeof(opcodes_str)/sizeof(opcodes_str[0]); i++)
-        	if(strcmp(opcode, opcodes_str[i]) == 0)
-            		return i; 
-    	return -1;  
+		if(strcmp(opcode, opcodes_str[i]) == 0)
+			return i; 
+	return -1;  
 }
 
 int readfile(char *filename, char **readarray,int readarray_size) {
@@ -90,7 +99,7 @@ int readfile(char *filename, char **readarray,int readarray_size) {
 	fp = fopen(filename, "r");
 
 	if (fp == NULL)
- 		exit(-1);
+		exit(-1);
 
 	char ch;
 	int i = 0;
@@ -112,13 +121,14 @@ int readfile(char *filename, char **readarray,int readarray_size) {
 	}
 
 	fclose(fp);
-	
+
 	return j;
 }
 
+
 void eval(int instr) {
-	int a,b;
-	
+	int a,b,var;
+
 	if(sp >= 1024){
 		printf("Stack overflow !\n");
 		exit(-1);
@@ -126,20 +136,11 @@ void eval(int instr) {
 	//printf("Instruction => %d\n",instr);
 	switch (instr){
 		case PSH: 
-			int set_flag = 0;
-			for(int i = 0; i < vr; i++){
-				if(strcmp(ram[i].vars,program[ip +1]) == 0){
-					stack[sp++] = ram[i].val;	
-					ip++;
-					set_flag = 1;
-					break;
-				}
-			}
-			
-			if(set_flag != 1){
-			stack[sp++] = atoi(program[++ip]);
-			printf("Not a variable\n");
-			}
+			var = findvar();
+			if(var >= 0)
+				stack[sp++] = ram[var].val;
+			else
+				stack[sp++] = atoi(program[++ip]);
 
 			break;
 
@@ -150,7 +151,7 @@ void eval(int instr) {
 			b = stack[--sp];
 			stack[sp++] = b + a;
 			break;
-		
+
 		case SUB:
 			if(!checkstacklen(2))
 				break;
@@ -176,7 +177,11 @@ void eval(int instr) {
 			break;
 
 		case POP: 
-			printf("Popped %d\n", stack[--sp]);
+			var = findvar();
+			if(var >= 0)
+				ram[var].val = stack[--sp];
+			else
+				printf("Popped %d\n", stack[--sp]);
 			break;
 
 		case PRT:
@@ -194,42 +199,30 @@ void eval(int instr) {
 		case SET:
 			strcpy(ram[vr].vars, program[++ip]);
 			ram[vr++].val = atoi(program[++ip]);
-//			printf("%s has value %d\n",ram[vr -1].vars,ram[vr -1].val);
+			//			printf("%s has value %d\n",ram[vr -1].vars,ram[vr -1].val);
 			break;
 		case INC:
-			for(a = 0; a < vr; a++)
-				if(strcmp(ram[a].vars,program[ip +1]) == 0){
-					ram[a].val += 1; 
-					ip++;
-					break;
-				}
+			var = findvar();
+			if(var >= 0)
+				ram[var].val += 1;
 			break;
 
 		case DEC:
-			for(a = 0; a < vr; a++)
-				if(strcmp(ram[a].vars,program[ip +1]) == 0){
-					ram[a].val -= 1; 
-					ip++;
-					break;
-				}
+			var = findvar();
+			if(var >= 0)
+				ram[var].val -= 1;
 			break;
 
 		case INCV:
-			for(a = 0; a < vr; a++)
-				if(strcmp(ram[a].vars,program[ip +1]) == 0){
-					ip++;
-					ram[a].val += atoi(program[++ip]); 
-					break;
-				}
+			var = findvar();
+			if(var >= 0)
+				ram[var].val += atoi(program[++ip]);
 			break;
 
 		case DECV:
-			for(a = 0; a < vr; a++)
-				if(strcmp(ram[a].vars,program[ip +1]) == 0){
-					ip++;
-					ram[a].val -= atoi(program[++ip]); 
-					break;
-				}
+			var = findvar();
+			if(var >= 0)
+				ram[var].val -= atoi(program[++ip]);
 			break;
 
 		case CMP:
@@ -238,32 +231,32 @@ void eval(int instr) {
 					ip++;
 					if(ram[a].val == atoi(program[ip + 1])){
 						ip++;
-						printf("varialbe is equal to num , zf=1 cf =0\n");
+						//printf("varialbe is equal to num , zf=1 cf =0\n");
 						zf = 1;
 						cf = 0;
 					}
 					else if(ram[a].val > atoi(program[ip + 1])){
 						ip++;
-						printf("varialbe is greater than num , zf=0 cf =0\n");
+						//printf("varialbe is greater than num , zf=0 cf =0\n");
 						zf = 0;
 						cf = 0;
 					}
 					else if(ram[a].val < atoi(program[ip + 1])){
 						ip++;
-						printf("varialbe is smaller than num , zf=0 cf =1\n");
+						//printf("varialbe is smaller than num , zf=0 cf =1\n");
 						zf = 0;
 						cf = 1;
 					}
-						
+
 					break;
 				}
 			break;
-			
+
 		case LBL:
 			strcpy(ram[vr].vars,program[++ip]); // save the label name in the ram
 			ram[vr++].val = ip;
 			break;
-		
+
 		case JMP:
 			for(a = 0; a < vr; a++)
 				if(strcmp(ram[a].vars,program[ip +1]) == 0){
@@ -277,7 +270,7 @@ void eval(int instr) {
 					if(strcmp(ram[a].vars,program[ip +1]) == 0){
 						ip = ram[a].val;
 						break;
-				}
+					}
 			break;	
 		case JZ:
 			// if zf is turned on 
@@ -286,13 +279,13 @@ void eval(int instr) {
 					if(strcmp(ram[a].vars,program[ip +1]) == 0){
 						ip = ram[a].val;
 						break;
-				}
+					}
 			break;	
 	}
 }
 
 int main(int argc, char *argv[]) {
-	if (argc != 2) {
+	if (argc != 2){
 		fprintf(stderr, "[-] Too Less Or Too Many Args , Provide a valid asm file!");
 		exit(-1);
 	}
@@ -300,9 +293,9 @@ int main(int argc, char *argv[]) {
 	int size = 1024;
 	char **prog = malloc(size * sizeof(char*));   
 	for (int i = 0; i < 100; i++)
-    		prog[i] = malloc(10 * sizeof(char));     
+		prog[i] = malloc(10 * sizeof(char));     
 
-	size = readfile(argv[1],prog,size);
+	readfile(argv[1],prog,size);
 
 	program = prog;	
 
@@ -313,6 +306,6 @@ int main(int argc, char *argv[]) {
 		ip++;
 	}
 
-	free(prog);
+	free(program);
 	return 0;
 }
