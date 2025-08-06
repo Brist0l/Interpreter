@@ -1,106 +1,245 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include<string.h>
+
+const char* opcodes_str[] = {
+	"PSH", //Push a value
+	"ADD", //Add values
+	"SUB", //Subtract The Values
+	"MUL", //Multiply The Values
+	"DIV", //Divide The Values
+	"POP", //Remove A value
+	"PRT", //Print The Stack
+	"HLT", //Terminate the Program
+	"SET", //Set values to variables
+	"INC", //Increase the value of variable by 1
+	"DEC", //Decrease the value of variable by 1
+	"INCV", //Increase the value of variable by val
+	"DECV" //Decrease the value of variable by val
+};
 
 typedef enum {
-  PSH, // Push a value
-  ADD, // Add values
-  SUB, // Subtract The Values
-  MUL, // Multiply The Values
-  DIV, // Divide The Values
-  POP, // Remove A value
-  PRT, // Print The Stack
-  HLT  // Terminate the Program
-} InstructionSet;
+	PSH, //Push a value
+	ADD, //Add values
+	SUB, //Subtract The Values
+	MUL, //Multiply The Values
+	DIV, //Divide The Values
+	POP, //Remove A value
+	PRT, //Print The Stack
+	HLT,  //Terminate the Program
+	SET,//Set values to variables
+	INC, //Increase the value of variable by 1
+	DEC, //Decrease the value of variable by 1
+	INCV, //Increase the value of variable by val
+	DECV //Decrease the value of variable by val
+} opcodes;
 
-int ip = 0;  // Instruction Pointer
-int sp = -1; // Stack Pointer
 
-int stack[256];
-
+int ip = 0;  // instruction Pointer
+int sp = 0; // stack Pointer
+int mem = 0; // mem addr
+int vr = 0; // var counter
+struct ram_hashmap{
+	char vars[10];
+	int val;
+};
+struct ram_hashmap ram[10 * sizeof(struct ram_hashmap)]; 
+int stack[1024];
 bool running = true;
+char** program;
 
-int fetch(char program[]) { return program[ip]; }
+void eval(int instr);
+int readfile(char *filename, char **readarray,int readarray_size);
+int getopcode(char* opcode);
 
-int readfile(char *filename, char *readarray) {
-  FILE *fp;
-  fp = fopen(filename, "r");
+int getopcode(char* opcode){
+	for(int i = 0; i < sizeof(opcodes_str)/sizeof(opcodes_str[0]); i++)
+        	if(strcmp(opcode, opcodes_str[i]) == 0)
+            		return i; 
+    	return -1;  
+}
 
-  if (fp == NULL) {
-    return -1;
-  }
+int readfile(char *filename, char **readarray,int readarray_size) {
+	FILE *fp;
+	fp = fopen(filename, "r");
 
-  /* fseek goes(seeks) to end of fie and check for error in the if conditional
-   */
-  if (fseek(fp, 0L, SEEK_END) < 0) {
-    fclose(fp);
-    return -1;
-  }
+	if (fp == NULL)
+ 		exit(-1);
 
-  int file_size = ftell(fp) + 1;
+	char ch;
+	int i = 0;
+	int j = 0;
+	while((ch = fgetc(fp)) != EOF){
+		//Reallocate the program array
+		if(i > readarray_size){
+			printf("Reallocating some mem cuz the array is smol\n");
+			readarray = realloc(readarray,readarray_size);
+		}
+		if(ch == ' ' || ch == '\n'){
+			//printf("%d => %c\n",ch,ch);
+			j++;
+			i = 0;
+			continue;
+		}
+		//printf("Inserting %c at %dx%d\n",ch,i,j);
+		*(*(readarray + j) + i++)= ch;
+	}
 
-  /* go back to where we were and continue */
-  if (fseek(fp, 0L, SEEK_SET) < 0) {
-    printf("Error: Possibly corrupt rom\n");
-
-    return -1;
-  }
-
-  /* Read file into array */
-  fread(readarray, 1024, 1, fp);
-
-  fclose(fp);
-
-  /* return file size so that you know how big is array and prevent bugs in your
-   * code */
-  readarray[file_size - 1] = '\0';
-  return file_size;
+	fclose(fp);
+	
+	return j;
 }
 
 void eval(int instr) {
-  switch (instr) {
-  case HLT: {
-    running = false;
-    puts("Stopped!");
-    break;
-  }
-  case PSH: {
-    sp++;
-    //   stack[sp] = program[++ip];
-    break;
-  }
+	int a,b;
+	//printf("Instruction => %d\n",instr);
+	switch (instr){
+		case PSH: 
+			int set_flag = 0;
+			for(int i = 0; i < vr; i++){
+				if(strcmp(ram[i].vars,program[ip +1]) == 0){
+					stack[sp++] = ram[i].val;	
+					ip++;
+					printf("Set stack\n");
+					set_flag = 1;
+					break;
+				}
+			}
+			
+			if(set_flag != 1){
+			stack[sp++] = atoi(program[++ip]);
+			printf("Not a variable\n");
+			}
 
-  case POP: {
-    int val_poped = stack[sp--];
-    printf("Popped %d\n", val_poped);
-    break;
-  }
+			break;
 
-  case ADD: {
-    int a = stack[sp--];
+		case ADD:
+			if(sp < 2){
+				running = false;
+				printf("Stack doesn't have even 2 elements\n");
+				break;
+			}
+			a = stack[--sp];
+			b = stack[--sp];
+			stack[sp++] = b + a;
+			break;
+		
+		case SUB:
+			if(sp < 2){
+				running = false;
+				printf("Stack doesn't have even 2 elements\n");
+				break;
+			}
+			a = stack[--sp];
+			b = stack[--sp];
+			stack[sp++] = b - a;
+			break;
 
-    int b = stack[sp--];
+		case MUL:
+			if(sp < 2){
+				running = false;
+				printf("Stack doesn't have even 2 elements\n");
+				break;
+			}
+			a = stack[--sp];
+			b = stack[--sp];
+			stack[sp++] = b * a;
+			break;
 
-    int result = b + a;
+		case DIV:
+			if(sp < 2){
+				running = false;
+				printf("Stack doesn't have even 2 elements\n");
+				break;
+			}
+			a = stack[--sp];
+			b = stack[--sp];
+			stack[sp++] = b / a;
+			break;
 
-    sp++;
+		case POP: 
+			printf("Popped %d\n", stack[--sp]);
+			stack[sp + 1] = (int)NULL;	
+			break;
 
-    stack[sp] = result;
-    break;
-  }
-  }
+		case PRT:
+			printf("-----stack start----(size of stack = %d)-\n",sp);
+			for(int i = sp;i > 0;i--)
+				printf("%d\n",stack[i - 1]);
+			printf("-----stack end--------------------------\n");
+			break;
+
+		case HLT: 
+			running = false;
+			puts("Stopped!");
+			break;
+
+		case SET:
+			strcpy(ram[vr].vars, program[++ip]);
+			ram[vr++].val = atoi(program[++ip]);
+//			printf("%s has value %d\n",ram[vr -1].vars,ram[vr -1].val);
+			break;
+		case INC:
+			for(a = 0; a < vr; a++)
+				if(strcmp(ram[a].vars,program[ip +1]) == 0){
+					ram[a].val += 1; 
+					ip++;
+					break;
+				}
+			break;
+
+		case DEC:
+			for(a = 0; a < vr; a++)
+				if(strcmp(ram[a].vars,program[ip +1]) == 0){
+					ram[a].val -= 1; 
+					ip++;
+					break;
+				}
+			break;
+
+		case INCV:
+			for(a = 0; a < vr; a++)
+				if(strcmp(ram[a].vars,program[ip +1]) == 0){
+					ip++;
+					ram[a].val += atoi(program[++ip]); 
+					break;
+				}
+			break;
+
+		case DECV:
+			for(a = 0; a < vr; a++)
+				if(strcmp(ram[a].vars,program[ip +1]) == 0){
+					ip++;
+					ram[a].val -= atoi(program[++ip]); 
+					break;
+				}
+			break;
+	}
 }
 
 int main(int argc, char *argv[]) {
-  if (argc > 2 || argc == 1) {
-    fprintf(stderr, "[-] Too Less Or Too Many Args!");
-    exit(-1);
-  }
-  char ok[1024];
-  readfile(argv[1], ok);
-  while (running) {
-    eval(fetch(ok));
-    ip++;
-  }
-  return 0;
+	if (argc != 2) {
+		fprintf(stderr, "[-] Too Less Or Too Many Args , Provide a valid asm file!");
+		exit(-1);
+	}
+
+	int size = 1024;
+	char **prog = malloc(size * sizeof(char*));   
+	for (int i = 0; i < 100; i++)
+    		prog[i] = malloc(10 * sizeof(char));     
+
+	size = readfile(argv[1],prog,size);
+
+	program = prog;	
+
+	//printf("instrcution: %s and it's opcode = %d\n",program[ip],getopcode(program[ip]));
+
+	while(running){
+		eval(getopcode(program[ip]));
+		ip++;
+	}
+
+	free(prog);
+	return 0;
 }
