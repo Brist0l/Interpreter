@@ -184,6 +184,15 @@ void eval(int instr) {
 			break;
 
 		case ADD:
+			var_cnt = findvar();
+			if(var_cnt >= 0){
+				var_cnt_alt = findvar();
+				if(var_cnt_alt >= 0){
+					var[var_cnt].val += var[var_cnt_alt].val;
+					break;
+				}
+			}
+
 			if(!checkstacklen(2))
 				break;
 			a = stack[--sp];
@@ -192,6 +201,15 @@ void eval(int instr) {
 			break;
 
 		case SUB:
+			var_cnt = findvar();
+			if(var_cnt >= 0){
+				var_cnt_alt = findvar();
+				if(var_cnt_alt >= 0){
+					var[var_cnt].val -= var[var_cnt_alt].val;
+					break;
+				}
+			}
+
 			if(!checkstacklen(2))
 				break;
 			a = stack[--sp];
@@ -219,6 +237,15 @@ void eval(int instr) {
 			break;
 
 		case DIV:
+			var_cnt = findvar();
+			if(var_cnt >= 0){
+				var_cnt_alt = findvar();
+				if(var_cnt_alt >= 0){
+					var[var_cnt].val /= var[var_cnt_alt].val;
+					break;
+				}
+			}
+
 			if(!checkstacklen(2))
 				break;
 			a = stack[--sp];
@@ -336,23 +363,28 @@ void eval(int instr) {
 		case JMP:
 			gotolabel();
 			break;	
+
 		case JNZ:
 			if(zf == 0)
 				gotolabel();
 			break;	
+
 		case JZ:
 			// if zf is turned on 
 			if(zf == 1)
 				gotolabel();
 			break;	
+
 		case JG:
 			if(zf == 0 && cf == 0)
 				gotolabel();
 			break;
+
 		case JL:
 			if(zf == 0 && cf == 1)
 				gotolabel();
 			break;
+
 		case JE:
 			if(zf == 1 && cf == 0)
 				gotolabel();
