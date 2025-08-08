@@ -84,7 +84,7 @@ char** program;
 
 
 void eval(int instr);
-int readfile(char *filename, char **readarray,int readarray_size);
+int readfile(char *filename, char ***readarray_ptr,int readarray_size);
 int getopcode(char* opcode);
 bool checkstacklen(int des_len);
 int findvar();
@@ -134,7 +134,7 @@ int getopcode(char* opcode){
 	return -1;  
 }
 
-int readfile(char *filename, char **readarray,int readarray_size) {
+int readfile(char *filename, char ***readarray_ptr,int readarray_size) {
 	FILE *fp;
 	fp = fopen(filename, "r");
 
@@ -144,11 +144,20 @@ int readfile(char *filename, char **readarray,int readarray_size) {
 	char ch;
 	int i = 0;
 	int j = 0;
+	char **readarray = *readarray_ptr;
 	while((ch = fgetc(fp)) != EOF){
-		//Reallocate the progvar array
-		if(i > readarray_size){
-			printf("Reallocating some mem cuz the array is smol\n");
-			readarray = realloc(readarray,readarray_size);
+		//Reallocate if j >= current size
+		if(j >= readarray_size){
+			int old_size = readarray_size;
+			readarray_size *= 2; // double the size
+					     
+			//printf("Reallocating some mem cuz the array is smol, new size: %d\n",readarray_size);
+
+			char **new_arr = realloc(readarray, readarray_size * sizeof(char*));
+			for (int r = old_size; r < readarray_size; r++)
+				*(new_arr + r) = malloc(10 * sizeof(char));
+			readarray = new_arr;
+			*readarray_ptr = readarray;
 		}
 		if(ch == ' ' || ch == '\n'){
 			//printf("%d => %c\n",ch,ch);
@@ -158,6 +167,7 @@ int readfile(char *filename, char **readarray,int readarray_size) {
 		}
 		//printf("Inserting %c at %dx%d\n",ch,i,j);
 		*(*(readarray + j) + i++)= ch;
+		*(*(readarray + j) + i)= '\0';
 	}
 
 	fclose(fp);
@@ -230,7 +240,7 @@ void eval(int instr) {
 
 			if(!checkstacklen(2))
 				break;
-				
+
 			a = stack[--sp];
 			b = stack[--sp];
 			stack[sp++] = b * a;
@@ -415,7 +425,7 @@ void eval(int instr) {
 		case RET:
 			ip = call_stack[--fc];
 			break;
-			
+
 	}
 }
 
@@ -425,17 +435,18 @@ int main(int argc, char *argv[]) {
 		exit(-1);
 	}
 
-	int size = 1024;
+	int size = 100;
 	char **prog = malloc(size * sizeof(char*));   
-	for (int i = 0; i < 100; i++)
+	for (int i = 0; i < size; i++)
 		prog[i] = malloc(10 * sizeof(char));     
 
-	size = readfile(argv[1],prog,size);
+	size = readfile(argv[1],&prog,size);
 
 	program = prog;	
 
-	//printf("instrcution: %s and it's opcode = %d\n",progvar[ip],getopcode(program[ip]));
-	
+	//printf("instrcution: %s",program[ip]);
+	//printf("and it's opcode = %d\n",getopcode(program[ip]));
+
 	parselabels(size);
 
 	while(running){
@@ -443,6 +454,8 @@ int main(int argc, char *argv[]) {
 		ip++;
 	}
 
+	for(int i = 0; i < size; i++)
+		free(program[i]);
 	free(program);
 	return 0;
 }
